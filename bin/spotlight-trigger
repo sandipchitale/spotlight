@@ -1,0 +1,20 @@
+#!/bin/sh
+# Fast trigger for Spotlight.
+# - If a Spotlight process is already running, send SIGUSR1 to toggle its window
+#   (instant — no Electron cold start).
+# - Otherwise launch the AppImage.
+
+APPIMAGE="/home/sandipchitale/professional/electron/spotlight/release/Spotlight-0.0.1-x86_64.AppImage"
+PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/spotlight.pid"
+
+if [ -f "$PID_FILE" ]; then
+    PID=$(cat "$PID_FILE" 2>/dev/null)
+    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+        kill -USR1 "$PID"
+        exit 0
+    fi
+    # Stale pid file — fall through to launching a fresh instance.
+    rm -f "$PID_FILE"
+fi
+
+exec "$APPIMAGE"

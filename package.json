@@ -1,0 +1,49 @@
+{
+  "name": "spotlight",
+  "version": "0.0.1",
+  "description": "macOS Spotlight-style transparent window built with Electron, Vite, and Tailwind CSS",
+  "main": "dist-electron/spotlight.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "electron .",
+    "dist": "vite build && electron-builder --linux --x64"
+  },
+  "author": "Sandip Chitale (https://www.linkedin.com/in/sandipchitale/)",
+  "license": "MIT",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.10.0",
+    "electron": "^41.2.1",
+    "electron-builder": "^26.8.1",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.sandipchitale.spotlight",
+    "productName": "Spotlight",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "icons/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "publish": null,
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "icon": "icons/spotlight512x512.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    }
+  }
+}
