@@ -4,7 +4,13 @@ A macOS Spotlight–style launcher for Linux, built with **Electron**, **Vite**,
 
 A frameless, transparent, always-on-top window renders a horizontal pill-shaped search field with a progressive-disclosure row of four circular quick-action buttons. Each button opens a themed popup dialog from which you can launch native Linux apps or open web destinations in your default browser. The bar is summoned system-wide via `Ctrl+Alt+Space` — first press cold-starts and keeps the process resident, subsequent presses toggle visibility in ~5 ms via a POSIX signal.
 
+## Screenshot
+
 ![Spotlight bar](screenshots/spotlight.png)
+
+## Screencast
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/C__CIpGcneY?si=VSZ-zeMs-KO4_bMc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 ## Features
 

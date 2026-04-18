@@ -144,16 +144,16 @@ function renderDialog(actionId: string): void {
           ${content.items
             .map(
               (item) => {
-                const interactive = Boolean(item.appId || item.url)
                 const attrs = [
                   item.appId ? `data-app-id="${escapeHtml(item.appId)}"` : '',
                   item.url ? `data-url="${escapeHtml(item.url)}"` : '',
-                  interactive ? 'role="option" tabindex="-1"' : 'role="presentation"',
+                  'role="option"',
+                  'tabindex="-1"',
                 ].filter(Boolean).join(' ')
                 return `
                 <li
                   ${attrs}
-                  class="${interactive ? 'cursor-pointer' : 'cursor-default'} flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-sky-100/80 focus:bg-sky-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                  class="cursor-pointer flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-sky-100/80 focus:bg-sky-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
                 >
                   <span class="truncate text-sm text-blue-950">${escapeHtml(item.name)}</span>
                   <span class="shrink-0 pl-3 text-xs text-slate-500">${escapeHtml(item.meta)}</span>
@@ -162,6 +162,14 @@ function renderDialog(actionId: string): void {
             )
             .join('')}
         </ul>
+        <div
+          id="toast"
+          role="status"
+          aria-live="polite"
+          class="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/90 px-4 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-200"
+        >
+          Not implemented yet
+        </div>
       </div>
     </div>
   `
