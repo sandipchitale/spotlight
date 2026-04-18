@@ -121,7 +121,7 @@ function renderDialog(actionId: string): void {
 
   app.innerHTML = `
     <div class="drag flex h-screen w-screen items-stretch p-3">
-      <div class="no-drag flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white bg-white shadow-2xl">
+      <div class="no-drag relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white bg-white shadow-2xl">
         <div class="drag flex items-center justify-between border-b border-slate-200/70 px-5 py-3">
           <div class="min-w-0">
             <h2 class="truncate text-base font-semibold text-blue-950">${content.title}</h2>
@@ -179,8 +179,20 @@ function renderDialog(actionId: string): void {
   })
 
   const items = Array.from(
-    app.querySelectorAll<HTMLLIElement>('li[data-app-id], li[data-url]')
+    app.querySelectorAll<HTMLLIElement>('li[role="option"]')
   )
+  const toast = app.querySelector<HTMLDivElement>('#toast')
+  let toastTimer: number | null = null
+
+  const showToast = (msg: string): void => {
+    if (!toast) return
+    toast.textContent = msg
+    toast.classList.remove('opacity-0')
+    if (toastTimer !== null) window.clearTimeout(toastTimer)
+    toastTimer = window.setTimeout(() => {
+      toast.classList.add('opacity-0')
+    }, 1800)
+  }
 
   const activateItem = (li: HTMLLIElement): void => {
     const appId = li.dataset['appId']
@@ -189,6 +201,8 @@ function renderDialog(actionId: string): void {
       window.spotlight.launch(appId)
     } else if (url) {
       window.spotlight.openUrl(url)
+    } else {
+      showToast('Not implemented yet')
     }
   }
 
