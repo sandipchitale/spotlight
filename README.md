@@ -10,7 +10,7 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 
 ## Screencast
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/C__CIpGcneY?si=VSZ-zeMs-KO4_bMc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[![Watch the screencast](https://img.youtube.com/vi/C__CIpGcneY/0.jpg)](https://www.youtube.com/watch?v=C__CIpGcneY)
 
 ## Features
 
