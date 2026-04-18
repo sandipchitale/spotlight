@@ -24,14 +24,15 @@ if (!gotInstanceLock) {
     app.exit(0)
 }
 
-const COLLAPSED_WIDTH = 700
-const EXPANDED_WIDTH = 1000
+// Window is always full width — no per-step OS resize. The empty area is
+// transparent, so the user only sees the pill + revealed buttons.
+// Math: px-5 padding (40) + pill (660) + gap-4 (16) + 4 buttons (4*56) + 3 gaps (3*12) = 976.
+// Add ~24 px buffer for the drop-shadow to render without being clipped at the window edge.
+const WIN_WIDTH = 1000
 const WIN_HEIGHT = 110
 
 let win: BrowserWindow | null = null
 let dialogWin: BrowserWindow | null = null
-let resizeTimer: NodeJS.Timeout | null = null
-let currentTargetWidth = COLLAPSED_WIDTH
 
 const DIALOG_WIDTH = 480
 const DIALOG_HEIGHT = 520
@@ -83,9 +84,9 @@ function createWindow(): void {
     const {width: screenWidth} = screen.getPrimaryDisplay().workAreaSize
 
     win = new BrowserWindow({
-        width: COLLAPSED_WIDTH,
+        width: WIN_WIDTH,
         height: WIN_HEIGHT,
-        x: Math.round((screenWidth - COLLAPSED_WIDTH) / 2),
+        x: Math.round((screenWidth - WIN_WIDTH) / 2),
         y: 180,
         frame: false,
         transparent: true,
@@ -123,42 +124,6 @@ function createWindow(): void {
     win.on('closed', () => {
         win = null
     })
-}
-
-function animateWidth(targetWidth: number): void {
-    if (!win) return
-    if (currentTargetWidth === targetWidth && resizeTimer === null) return
-    currentTargetWidth = targetWidth
-
-    if (resizeTimer) {
-        clearTimeout(resizeTimer)
-        resizeTimer = null
-    }
-
-    const start = win.getBounds()
-    const {width: screenWidth} = screen.getPrimaryDisplay().workAreaSize
-    const targetX = Math.round((screenWidth - targetWidth) / 2)
-    const duration = 220
-    const startTime = Date.now()
-
-    const tick = (): void => {
-        if (!win) {
-            resizeTimer = null
-            return
-        }
-        const elapsed = Date.now() - startTime
-        const t = Math.min(1, elapsed / duration)
-        const ease = 1 - Math.pow(1 - t, 3)
-        const w = Math.round(start.width + (targetWidth - start.width) * ease)
-        const x = Math.round(start.x + (targetX - start.x) * ease)
-        win.setBounds({x, y: start.y, width: w, height: start.height})
-        if (t < 1) {
-            resizeTimer = setTimeout(tick, 16)
-        } else {
-            resizeTimer = null
-        }
-    }
-    tick()
 }
 
 function openDialog(actionId: string): void {
@@ -309,8 +274,6 @@ app.whenReady().then(() => {
 
 ipcMain.on('spotlight:hide', hideWindow)
 ipcMain.on('spotlight:quit', () => app.quit())
-ipcMain.on('spotlight:expand', () => animateWidth(EXPANDED_WIDTH))
-ipcMain.on('spotlight:collapse', () => animateWidth(COLLAPSED_WIDTH))
 ipcMain.on('spotlight:openDialog', (_e, actionId: string) => openDialog(actionId))
 ipcMain.on('spotlight:closeDialog', () => closeDialog())
 ipcMain.on('spotlight:launch', (_e, appId: string) => {

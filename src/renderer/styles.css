@@ -21,6 +21,14 @@ body,
   -webkit-app-region: no-drag;
 }
 
+/* Peek hint: shows the "next hidden" action button as a left-to-right fade,
+   so the user knows there's more revealable content to the right. */
+.peek-fade {
+  -webkit-mask-image: linear-gradient(to right, black 0%, transparent 30%);
+  mask-image: linear-gradient(to right, black 0%, transparent 30%);
+  transition-property: opacity, transform, mask-image, -webkit-mask-image, background-color;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
