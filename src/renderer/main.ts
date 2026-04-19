@@ -416,6 +416,21 @@ function renderSpotlightBar(): void {
     updateHint()
   })
 
+  window.addEventListener('keydown', (e) => {
+    const modifier = IS_MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey
+    if (modifier && !e.shiftKey && !e.altKey && /^[1-4]$/.test(e.key)) {
+      const index = parseInt(e.key, 10) - 1
+      if (index < ACTIONS_COUNT) {
+        e.preventDefault()
+        const id = buttons[index]?.dataset['action']
+        if (id) {
+          window.spotlight.openDialog(id)
+          resetCollapseTimer()
+        }
+      }
+    }
+  })
+
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') {
       e.preventDefault()
