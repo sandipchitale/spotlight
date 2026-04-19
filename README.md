@@ -6,6 +6,8 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 
 ## Screenshot
 
+![Initial Spotlight bar](screenshots/spotlight-initial.png)
+
 ![Spotlight bar](screenshots/spotlight.png)
 
 ## Screencast
@@ -72,6 +74,12 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 | **macOS** | **Option+Space** | Requires Accessibility permission (System Settings → Privacy & Security → Accessibility) |
 | **Linux** | **Ctrl+Alt+Space** | Via GNOME custom keybinding (see Installing section) |
 | **Windows** | **Alt+Space** | Registered via Electron `globalShortcut` |
+
+**Anywhere on the bar (input or button focus):**
+
+| Shortcut | Action |
+|---|---|
+| **Ctrl+1** / **Ctrl+2** / **Ctrl+3** / **Ctrl+4** | Open the 1st / 2nd / 3rd / 4th action's dialog directly — no need to reveal the buttons first. **Cmd+1–4** on macOS. |
 
 **Focus on the search input:**
 
