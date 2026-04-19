@@ -37,6 +37,34 @@ let dialogWin: BrowserWindow | null = null
 const DIALOG_WIDTH = 480
 const DIALOG_HEIGHT = 520
 
+// Shared BrowserWindow options for the bar and the dialog — both are frameless,
+// transparent, always-on-top pills with the same preload and shadow.
+const baseWindowOptions = (): Electron.BrowserWindowConstructorOptions => ({
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: true,
+    alwaysOnTop: true,
+    show: false,
+    hasShadow: true,
+    backgroundColor: '#00000000',
+    icon: path.join(__dirname, '../icons/spotlight512x512.png'),
+    webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+    },
+})
+
+function loadView(w: BrowserWindow, query?: Record<string, string>): void {
+    if (VITE_DEV_SERVER_URL) {
+        const qs = query ? '?' + new URLSearchParams(query).toString() : ''
+        w.loadURL(VITE_DEV_SERVER_URL + qs)
+    } else {
+        w.loadFile(path.join(__dirname, '../dist/index.html'), query ? {query} : undefined)
+    }
+}
+
 // Commands to spawn for each app id, in order of preference. The first one
 // that exists on PATH wins; missing binaries fall through to the next candidate.
 const IS_MAC = process.platform === 'darwin'
@@ -59,9 +87,6 @@ const APP_COMMANDS: Record<string, string[][]> = {
     safari: [['open', '-a', 'Safari']],                           // mac only
     cmd: [['cmd.exe']],                                           // windows only
     powershell: [['powershell.exe']],                             // windows only
-    firefox: [['firefox'], ['firefox-esr']],
-    thunderbird: [['thunderbird']],
-    calendar: [['gnome-calendar']],
     rhythmbox: [['rhythmbox'], ['lollypop']],                     // linux only
     settings: IS_MAC
         ? [['open', '-b', 'com.apple.systempreferences']]
@@ -104,40 +129,22 @@ function createWindow(): void {
     const {width: screenWidth} = screen.getPrimaryDisplay().workAreaSize
 
     win = new BrowserWindow({
+        ...baseWindowOptions(),
         width: WIN_WIDTH,
         height: WIN_HEIGHT,
         x: Math.round((screenWidth - WIN_WIDTH) / 2),
         y: 180,
-        frame: false,
-        transparent: true,
-        resizable: false,
-        movable: true,
-        alwaysOnTop: true,
         // Keep the dock icon on macOS so the user can click it to re-summon the
         // window when no global shortcut is available (common until Accessibility
         // permission is granted). Linux/Windows don't have a dock so skip there.
         skipTaskbar: !IS_MAC,
-        show: false,
-        hasShadow: true,
-        backgroundColor: '#00000000',
-        icon: path.join(__dirname, '../icons/spotlight512x512.png'),
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            contextIsolation: true,
-            nodeIntegration: false,
-        },
     })
 
     win.setMenuBarVisibility(false)
     win.setAlwaysOnTop(true, 'screen-saver')
     win.setVisibleOnAllWorkspaces(true, {visibleOnFullScreen: true})
 
-    if (VITE_DEV_SERVER_URL) {
-        win.loadURL(VITE_DEV_SERVER_URL)
-        // win.webContents.openDevTools({ mode: 'detach' })
-    } else {
-        win.loadFile(path.join(__dirname, '../dist/index.html'))
-    }
+    loadView(win)
 
     // ready-to-show silently never fires on macOS for transparent+frameless windows.
     // did-finish-load always fires once the page is loaded.
@@ -164,38 +171,19 @@ function openDialog(actionId: string): void {
     const y = barBounds.y + barBounds.height + 10
 
     dialogWin = new BrowserWindow({
+        ...baseWindowOptions(),
         parent: win,
         width: DIALOG_WIDTH,
         height: DIALOG_HEIGHT,
         x,
         y,
-        frame: false,
-        transparent: true,
-        resizable: false,
-        movable: true,
-        alwaysOnTop: true,
         skipTaskbar: true,
-        show: false,
-        hasShadow: true,
-        backgroundColor: '#00000000',
-        icon: path.join(__dirname, '../icons/spotlight512x512.png'),
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            contextIsolation: true,
-            nodeIntegration: false,
-        },
     })
 
     dialogWin.setMenuBarVisibility(false)
     dialogWin.setAlwaysOnTop(true, 'screen-saver')
 
-    if (VITE_DEV_SERVER_URL) {
-        dialogWin.loadURL(`${VITE_DEV_SERVER_URL}?view=dialog&action=${encodeURIComponent(actionId)}`)
-    } else {
-        dialogWin.loadFile(path.join(__dirname, '../dist/index.html'), {
-            query: {view: 'dialog', action: actionId},
-        })
-    }
+    loadView(dialogWin, {view: 'dialog', action: actionId})
 
     dialogWin.webContents.once('did-finish-load', () => {
         dialogWin?.show()
@@ -272,10 +260,7 @@ function registerToggleShortcut(): void {
     )
 }
 
-app.on('second-instance', () => {
-    // Re-summon the existing window instead of letting a duplicate spawn.
-    toggleWindow()
-})
+app.on('second-instance', toggleWindow)
 
 // External trigger script sends SIGUSR1 to toggle visibility — much faster
 // than spawning a fresh Electron process per keypress.
@@ -289,24 +274,14 @@ app.whenReady().then(() => {
     }
 
     createWindow()
-
     registerToggleShortcut()
-
-    app.on('activate', () => {
-        // On macOS, clicking the dock icon should re-summon the window even
-        // when it is hidden (BrowserWindow.getAllWindows() still returns it).
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow()
-        } else {
-            showWindow()
-        }
-    })
+    app.on('activate', showWindow)
 })
 
 ipcMain.on('spotlight:hide', hideWindow)
 ipcMain.on('spotlight:quit', () => app.quit())
 ipcMain.on('spotlight:openDialog', (_e, actionId: string) => openDialog(actionId))
-ipcMain.on('spotlight:closeDialog', () => closeDialog())
+ipcMain.on('spotlight:closeDialog', closeDialog)
 ipcMain.on('spotlight:launch', (_e, appId: string) => {
     launchApp(appId)
     hideWindow()

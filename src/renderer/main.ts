@@ -417,23 +417,16 @@ function renderSpotlightBar(): void {
   })
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab' && !e.shiftKey) {
+    if (e.key === 'Tab') {
       e.preventDefault()
       clearStagger()
-      if (visibleCount === 0) {
-        // First Tab: reveal the first button, focus stays on input.
-        setVisibleCount(1)
-      } else {
-        // Subsequent Tab from input: move focus into the visible buttons.
+      if (!e.shiftKey) {
+        if (visibleCount === 0) setVisibleCount(1)
         buttons[0]?.focus()
         resetCollapseTimer()
+      } else if (visibleCount > 0) {
+        setVisibleCount(visibleCount - 1)
       }
-      return
-    }
-    if (e.key === 'Tab' && e.shiftKey && visibleCount > 0) {
-      e.preventDefault()
-      clearStagger()
-      setVisibleCount(visibleCount - 1)
       return
     }
     if (e.key === 'Escape') {
@@ -481,33 +474,32 @@ function renderSpotlightBar(): void {
         resetCollapseTimer()
         return
       }
-      if (e.key === 'Tab' && !e.shiftKey) {
+      if (e.key === 'Tab') {
         e.preventDefault()
         clearStagger()
-        if (visibleCount > index + 1) {
-          // Next button is already revealed → just move focus to it.
-          buttons[index + 1]?.focus()
-          resetCollapseTimer()
-        } else if (visibleCount < ACTIONS_COUNT) {
-          // Reveal the next hidden button; focus stays on the current one.
-          setVisibleCount(visibleCount + 1)
-        }
-        // else: at the very last button with all revealed — stay put.
-        return
-      }
-      if (e.key === 'Tab' && e.shiftKey) {
-        e.preventDefault()
-        clearStagger()
-        if (visibleCount > index + 1) {
-          // A revealed-but-unfocused button exists to the right → un-reveal it.
-          setVisibleCount(visibleCount - 1)
-        } else if (index > 0) {
-          buttons[index - 1]?.focus()
-          resetCollapseTimer()
+        if (!e.shiftKey) {
+          if (index + 1 < ACTIONS_COUNT) {
+            if (visibleCount <= index + 1) {
+              setVisibleCount(index + 2)
+            }
+            buttons[index + 1]?.focus()
+            resetCollapseTimer()
+          }
         } else {
-          input.focus()
+          if (index > 0) {
+            buttons[index - 1]?.focus()
+            if (visibleCount === index + 1) {
+              setVisibleCount(index)
+            }
+          } else {
+            input.focus()
+            if (visibleCount === 1) {
+              setVisibleCount(0)
+            }
+          }
           resetCollapseTimer()
         }
+        return
       }
     })
   })
