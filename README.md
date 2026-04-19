@@ -42,15 +42,15 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 
 - **Shift+Tab** mirrors the sequence in reverse (hide/focus-back alternation)
 - **←** / **→** on a focused button walk between *revealed* buttons only (WAI-ARIA toolbar pattern)
-- **Esc** on input cascades collapse → clear input → hide window (in that order)
+- **Esc** on input cascades collapse → clear input → hide the window (in that order)
 - Auto-collapse 4 s after the last interaction
 
 ### Action dialogs
 
 - Clicking a button opens a small themed popup (480 × 520 px, `rounded-2xl`, `bg-white`, `shadow-2xl`) just below the bar
 - List inside the dialog has its own faint `border-slate-200/80 shadow-sm` inset
-- **All** list items are keyboard-navigable (roving-tabindex listbox), not just the wired ones: first item auto-focuses on open, **↑** / **↓** wrap, **Home** / **End** jump, **Enter** / **Space** activate, **Esc** or close-icon dismiss
-- Items with `data-app-id` launch a native binary; items with `data-url` open in the default browser; items with neither show a briefly-visible **"Not implemented yet"** toast (slate pill at the bottom of the dialog, `role="status" aria-live="polite"`) without closing the dialog
+- **All** list items are keyboard-navigable (roving-tabindex listbox), not just the wired ones: first item autofocuses on open, **↑** / **↓** wrap, **Home** / **End** jump, **Enter** / **Space** activate, **Esc** or close-icon dismiss
+- Items with `data-app-id` launch a native binary; items with `data-url` open in the default browser; items with neither show a briefly visible **"Not implemented yet"** toast (slate pill at the bottom of the dialog, `role="status" aria-live="polite"`) without closing the dialog
 - Click-outside (`blur`) closes the dialog
 
 ### Behavior
@@ -129,7 +129,7 @@ The outer flex container, the pill body, and the dialog header are `.drag`. The 
 
 ## Peek-fade CSS
 
-The "next hidden" button is rendered with a gradient mask so only its left edge peeks out, gradually fading to transparent:
+The "next hidden" button is rendered with a gradient mask, so only its left edge peeks out, gradually fading to transparent:
 
 ```css
 .peek-fade {
@@ -231,7 +231,7 @@ update-desktop-database ~/.local/share/applications/
 
 ### Global keybinding (Ctrl+Alt+Space → trigger script)
 
-GNOME's settings-daemon owns the binding so it works on both Wayland and X11:
+GNOME's settings-daemon owns the binding, so it works on both Wayland and X11:
 
 ```bash
 SPOT=/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/spotlight/
