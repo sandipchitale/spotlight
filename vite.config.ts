@@ -15,6 +15,11 @@ export default defineConfig({
       renderer: {},
     }),
   ],
+  // Bake process.platform into the renderer bundle at build time so the
+  // sandboxed renderer (where process is unavailable) doesn't crash.
+  define: {
+    'process.platform': JSON.stringify(process.platform),
+  },
   build: {
     emptyOutDir: true,
   },

@@ -37,17 +37,37 @@ let dialogWin: BrowserWindow | null = null
 const DIALOG_WIDTH = 480
 const DIALOG_HEIGHT = 520
 
-// Linux command to spawn for each app id, in order of preference. The first one
+// Commands to spawn for each app id, in order of preference. The first one
 // that exists on PATH wins; missing binaries fall through to the next candidate.
+const IS_MAC = process.platform === 'darwin'
+const IS_WIN = process.platform === 'win32'
+
 const APP_COMMANDS: Record<string, string[][]> = {
-    files: [['nautilus'], ['nemo'], ['dolphin'], ['thunar'], ['xdg-open', process.env['HOME'] ?? '/']],
+    files: IS_MAC
+        ? [['open', '-a', 'Finder']]
+        : IS_WIN
+        ? [['explorer.exe']]
+        : [['nautilus'], ['nemo'], ['dolphin'], ['thunar'], ['xdg-open', process.env['HOME'] ?? '/']],
+    chrome: IS_MAC
+        ? [['open', '-a', 'Google Chrome']]
+        : IS_WIN
+        ? [['cmd', '/c', 'start', 'chrome']]
+        : [['google-chrome'], ['google-chrome-stable'], ['chromium-browser'], ['chromium']],
+    terminal: IS_MAC
+        ? [['open', '-a', 'Terminal']]
+        : [['ptyxis'], ['gnome-terminal'], ['konsole'], ['xfce4-terminal'], ['xterm']],
+    safari: [['open', '-a', 'Safari']],                           // mac only
+    cmd: [['cmd.exe']],                                           // windows only
+    powershell: [['powershell.exe']],                             // windows only
     firefox: [['firefox'], ['firefox-esr']],
-    chrome: [['google-chrome'], ['google-chrome-stable'], ['chromium-browser'], ['chromium']],
-    terminal: [['ptyxis'], ['gnome-terminal'], ['konsole'], ['xfce4-terminal'], ['xterm']],
     thunderbird: [['thunderbird']],
     calendar: [['gnome-calendar']],
-    rhythmbox: [['rhythmbox'], ['lollypop']],
-    settings: [['gnome-control-center'], ['systemsettings5'], ['xfce4-settings-manager']],
+    rhythmbox: [['rhythmbox'], ['lollypop']],                     // linux only
+    settings: IS_MAC
+        ? [['open', '-b', 'com.apple.systempreferences']]
+        : IS_WIN
+        ? [['cmd', '/c', 'start', 'ms-settings:']]
+        : [['gnome-control-center'], ['systemsettings5'], ['xfce4-settings-manager']],
 }
 
 function launchApp(appId: string): void {
@@ -93,7 +113,10 @@ function createWindow(): void {
         resizable: false,
         movable: true,
         alwaysOnTop: true,
-        skipTaskbar: true,
+        // Keep the dock icon on macOS so the user can click it to re-summon the
+        // window when no global shortcut is available (common until Accessibility
+        // permission is granted). Linux/Windows don't have a dock so skip there.
+        skipTaskbar: !IS_MAC,
         show: false,
         hasShadow: true,
         backgroundColor: '#00000000',
@@ -116,7 +139,9 @@ function createWindow(): void {
         win.loadFile(path.join(__dirname, '../dist/index.html'))
     }
 
-    win.once('ready-to-show', () => {
+    // ready-to-show silently never fires on macOS for transparent+frameless windows.
+    // did-finish-load always fires once the page is loaded.
+    win.webContents.once('did-finish-load', () => {
         win?.show()
         win?.focus()
     })
@@ -172,7 +197,7 @@ function openDialog(actionId: string): void {
         })
     }
 
-    dialogWin.once('ready-to-show', () => {
+    dialogWin.webContents.once('did-finish-load', () => {
         dialogWin?.show()
         dialogWin?.focus()
     })
@@ -219,15 +244,15 @@ function toggleWindow(): void {
 }
 
 function registerToggleShortcut(): void {
-    // Try several accelerators in order. Ctrl+Space is often grabbed on Linux by
-    // IBus/Fcitx (input method switcher), so we fall back to other combinations.
-    const candidates = [
-        'Control+Space',
-        'Alt+Space',
-        'Super+Space',
-        'CommandOrControl+Shift+Space',
-        'Control+Alt+Space',
-    ]
+    // macOS: Option+Space or Cmd+Option+Space are the least-grabbed choices.
+    //   Control+Space is taken by input-source switching; Cmd+Space is Spotlight.
+    //   Note: globalShortcut requires the Accessibility permission on macOS
+    //   (System Settings → Privacy & Security → Accessibility). If none register,
+    //   the dock icon (always visible on Mac) still lets the user re-summon the bar.
+    // Linux: Ctrl+Space is often grabbed by IBus/Fcitx; fall back through others.
+    const candidates: string[] = IS_MAC
+        ? ['Option+Space', 'Command+Option+Space', 'Control+Option+Space', 'CommandOrControl+Shift+Space']
+        : ['Control+Space', 'Alt+Space', 'Super+Space', 'CommandOrControl+Shift+Space', 'Control+Alt+Space']
 
     for (const accel of candidates) {
         try {
@@ -268,7 +293,13 @@ app.whenReady().then(() => {
     registerToggleShortcut()
 
     app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow()
+        // On macOS, clicking the dock icon should re-summon the window even
+        // when it is hidden (BrowserWindow.getAllWindows() still returns it).
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createWindow()
+        } else {
+            showWindow()
+        }
     })
 })
 

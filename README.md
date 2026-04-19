@@ -1,8 +1,8 @@
 # Spotlight
 
-A macOS Spotlight–style launcher for Linux, built with **Electron**, **Vite**, and **Tailwind CSS v4**.
+A macOS Spotlight–style launcher for **Linux**, **macOS**, and **Windows**, built with **Electron**, **Vite**, and **Tailwind CSS v4**.
 
-A frameless, transparent, always-on-top window renders a horizontal pill-shaped search field with a progressive-disclosure row of four circular quick-action buttons. Each button opens a themed popup dialog from which you can launch native Linux apps or open web destinations in your default browser. The bar is summoned system-wide via `Ctrl+Alt+Space` — first press cold-starts and keeps the process resident, subsequent presses toggle visibility in ~5 ms via a POSIX signal.
+A frameless, transparent, always-on-top window renders a horizontal pill-shaped search field with a progressive-disclosure row of four circular quick-action buttons. Each button opens a themed popup dialog from which you can launch native apps or open web destinations in your default browser. The bar is summoned system-wide via `Ctrl+Alt+Space` — first press cold-starts and keeps the process resident, subsequent presses toggle visibility in ~5 ms via a POSIX signal.
 
 ## Screenshot
 
@@ -54,19 +54,23 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 
 - **Resident process**: after first launch the app stays in memory; subsequent activations show/hide via `SIGUSR1` (~5 ms vs. ~1 s cold start)
 - **Single-instance lock** — double presses can't spawn duplicate popups
-- **Launch native Linux apps** (with fallback chains for alternate distros):
-  Files (Nautilus → Nemo → Dolphin → Thunar → `xdg-open ~`), Google Chrome, Terminal (Ptyxis → GNOME Terminal → Konsole → xfce4-terminal → xterm), Rhythmbox, Settings (GNOME Control Center)
+- **Launch native apps** — app list adapts per OS:
+  - **macOS**: Finder, Chrome, Safari, Terminal (Terminal.app), web links, System Preferences
+  - **Windows**: Explorer, Chrome, Cmd (Command Prompt), PowerShell, web links, Windows Settings
+  - **Linux**: Files (Nautilus → Nemo → Dolphin → Thunar → `xdg-open ~`), Chrome, Terminal (Ptyxis → GNOME Terminal → Konsole → xfce4-terminal → xterm), web links, Rhythmbox, Settings (GNOME Control Center)
 - **Open web destinations** in the default browser via `shell.openExternal`:
   Gmail, Google Calendar, Google Maps, LinkedIn, X
 - After launching an app or opening a URL, the window hides but the process stays resident
 
 ## Keyboard shortcuts
 
-**System-wide** (via GNOME custom keybinding):
+**System-wide:**
 
-| Shortcut | Action |
-|---|---|
-| **Ctrl+Alt+Space** | Toggle the Spotlight window from anywhere |
+| Platform | Shortcut | Notes |
+|---|---|---|
+| **macOS** | **Option+Space** | Requires Accessibility permission (System Settings → Privacy & Security → Accessibility) |
+| **Linux** | **Ctrl+Alt+Space** | Via GNOME custom keybinding (see Installing section) |
+| **Windows** | **Alt+Space** | Registered via Electron `globalShortcut` |
 
 **Focus on the search input:**
 
@@ -152,7 +156,7 @@ Build outputs (gitignored):
 
 - `dist/` — bundled renderer (HTML / JS / CSS)
 - `dist-electron/` — bundled main + preload scripts
-- `release/` — packaged AppImage from electron-builder
+- `release/` — packaged distributable from electron-builder (`.dmg` / `.AppImage` / `.exe`)
 
 ## Getting started
 
@@ -175,13 +179,17 @@ npm run build       # bundles renderer + main into dist/ and dist-electron/
 npm start           # runs Electron against the bundled output
 ```
 
-### Packaging an AppImage
+### Packaging
 
-```bash
-npm run dist
-```
+| Platform | Command | Output |
+|---|---|---|
+| **macOS** | `npm run dist-mac` | `release/Spotlight-0.0.1-arm64.dmg` (or `x64`) |
+| **Linux** | `npm run dist-linux` | `release/Spotlight-0.0.1-x86_64.AppImage` |
+| **Windows** | `npm run dist-win` | `release/Spotlight Setup 0.0.1.exe` |
 
-Runs `vite build` then `electron-builder --linux --x64`, emitting `release/Spotlight-0.0.1-x86_64.AppImage`. First run downloads ~80–100 MB of Electron + appimagetool into `~/.cache/electron*`; subsequent builds are much faster.
+First run downloads ~80–100 MB of Electron tooling; subsequent builds are much faster.
+
+**macOS note**: the app is unsigned, so macOS Gatekeeper will block the first launch. Right-click → Open to bypass it once. After that, launches normally.
 
 ## Installing as a GNOME application
 
@@ -268,8 +276,8 @@ Tracks `mousemove`, computes velocity (`dx/dt`), and counts direction reversals.
 ## Customizing
 
 - **Action buttons** (icons / labels): `ACTIONS` in `src/renderer/main.ts`
-- **Dialog content**: `DIALOG_CONTENT` in `src/renderer/main.ts`. Each item takes either `appId` (launches a Linux binary) or `url` (opens in default browser).
-- **Native app mappings**: `APP_COMMANDS` in `src/spotlight.ts` — each `appId` maps to an ordered list of candidate commands; the first one that exists on `PATH` wins.
+- **Dialog content**: `DIALOG_CONTENT` + `buildAppsItems()` in `src/renderer/main.ts`. Each item takes either `appId` (launches a native binary) or `url` (opens in default browser). Items are built per-OS using `IS_MAC` / `IS_WIN` guards.
+- **Native app mappings**: `APP_COMMANDS` in `src/spotlight.ts` — each `appId` maps to an ordered list of candidate commands per OS; the first one that exists on `PATH` wins.
 - **Window dimensions**: `WIN_WIDTH` / `WIN_HEIGHT`, `DIALOG_WIDTH` / `DIALOG_HEIGHT` in `src/spotlight.ts`
 - **Theme**: Tailwind utilities in `src/renderer/main.ts` — pill uses `bg-white`, buttons use `bg-sky-200` / `bg-sky-300` (hover), dialog uses `bg-white`, list uses `border-slate-200/80 shadow-sm`
 - **Peek mask curve**: `.peek-fade` in `src/renderer/styles.css`
@@ -278,25 +286,75 @@ Tracks `mousemove`, computes velocity (`dx/dt`), and counts direction reversals.
 
 ## Troubleshooting
 
-### After `npm run dist` I still see the old UI
+### `npm start` shows nothing / window never appears (all platforms)
 
-The previous Spotlight is still resident. The trigger script sees its PID file and just sends `SIGUSR1` to the **old** process, so the new AppImage never runs. Kill the resident instance once:
+The most common cause is a **resident instance already running** (from a previous `npm start` or an installed copy). `requestSingleInstanceLock()` causes the second process to exit immediately — `second-instance` fires on the old process and toggles its window, but the dev instance never opens one.
 
+Kill the resident process first, then re-run:
+
+**macOS**
+```bash
+# Quick kill by app name:
+pkill -f "Spotlight.app"
+
+# Or by PID file (written to /tmp on macOS):
+kill "$(cat /tmp/spotlight.pid)"
+
+# If the installed .app copy is running:
+pkill -f "/Applications/Spotlight.app"
+```
+
+**Linux**
 ```bash
 kill "$(cat "${XDG_RUNTIME_DIR:-/tmp}/spotlight.pid")"
-```
-
-If the PID file is missing or stale:
-
-```bash
+# or if stale:
 pkill -f release/Spotlight-
 ```
+
+**Windows (PowerShell)**
+```powershell
+Stop-Process -Name Spotlight -Force
+```
+
+---
+
+### macOS: window never appears even though the process is running
+
+`ready-to-show` silently never fires on macOS for `transparent: true` + `frame: false` `BrowserWindow` instances (known Electron bug). The code uses `did-finish-load` instead, which always fires. If you see the process running and a shortcut registered in the log but no window, ensure the source has `webContents.once('did-finish-load', ...)` not `once('ready-to-show', ...)`.
+
+### macOS: window appears on launch but can't be re-opened
+
+If the window is hidden and the global shortcut isn't working yet, click the **Spotlight dock icon** — it calls `showWindow()` via the `activate` event. If there is no dock icon, grant Accessibility permission (see below) and restart.
+
+### macOS: `Option+Space` (or other shortcut) doesn't toggle the bar
+
+`globalShortcut` requires the **Accessibility** permission on macOS. Without it the shortcut silently fails to register.
+
+1. Open **System Settings → Privacy & Security → Accessibility**
+2. Add the Spotlight app (or your Terminal / IDE when running `npm start`) and enable it
+3. Restart the app
+
+The app tries these shortcuts in order: `Option+Space` → `Command+Option+Space` → `Control+Option+Space` → `Command+Shift+Space`. The console log (`npm start`) shows which one registered. Until a shortcut works, the **dock icon** is always available as a fallback.
+
+### macOS: `.app` copy is resident but you want to run `npm start`
+
+Kill the installed copy before launching the dev build:
+
+```bash
+pkill -f "/Applications/Spotlight.app" ; npm start
+```
+
+### macOS: transparent background renders black or with artifacts
+
+Ensure **Settings → Accessibility → Display → Reduce Transparency** is **off**. If it is off and the issue persists, toggle `hasShadow: false` in `createWindow()` as a diagnostic step.
+
+---
 
 ### `Cannot read properties of null (reading 'channel')` from electron-builder
 
 Known electron-builder 26.x issue when no publish target is configured. Handled in `package.json` via `"publish": null` under the `build` block.
 
-### `Ctrl+Alt+Space` doesn't open the bar
+### Linux: `Ctrl+Alt+Space` doesn't open the bar
 
 - Verify the GNOME binding:
   ```bash
@@ -306,7 +364,7 @@ Known electron-builder 26.x issue when no publish target is configured. Handled 
 - Run the trigger manually to see errors: `./bin/spotlight-trigger`
 - Check IBus / Fcitx isn't grabbing the same combination — pick a different `binding` if so.
 
-### AppImage won't start (FUSE error)
+### Linux: AppImage won't start (FUSE error)
 
 ```bash
 sudo dnf install fuse fuse-libs        # Fedora
@@ -315,7 +373,7 @@ sudo dnf install fuse fuse-libs        # Fedora
 ./squashfs-root/AppRun
 ```
 
-### Transparent background looks black
+### Linux: Transparent background looks black
 
 Your compositor likely isn't running, or Electron picked Wayland without XWayland. The `ozone-platform-hint: x11` switch should force XWayland; if you removed it, add it back.
 
@@ -334,7 +392,7 @@ Your compositor likely isn't running, or Electron picked Wayland without XWaylan
 
 This project was built interactively over many iterations. If you want to recreate it in a single pass with an AI assistant, the prompt below is self-contained — paste it into a fresh session of a capable model (Claude Opus 4, GPT-5 class) in an empty Linux/Fedora project directory and you should land on the same functionality.
 
-> Build an Electron application called **Spotlight** for Linux/Fedora that behaves like macOS Spotlight but with a unique progressive-disclosure twist. Use **Electron 33+**, **Vite 6**, **vite-plugin-electron**, **Tailwind CSS v4** (via `@tailwindcss/vite`), **TypeScript** with strict mode, and **electron-builder** for packaging. Target only Linux x64 for now.
+> Build an Electron application called **Spotlight** that behaves like macOS Spotlight but with a unique progressive-disclosure twist. It must run on **Linux**, **macOS**, and **Windows**, adapting its native app list to each OS. Use **Electron 33+**, **Vite 6**, **vite-plugin-electron**, **Tailwind CSS v4** (via `@tailwindcss/vite`), **TypeScript** with strict mode, and **electron-builder** for packaging.
 >
 > **Project layout**
 >
@@ -356,7 +414,7 @@ This project was built interactively over many iterations. If you want to recrea
 > 6. Register an in-app `globalShortcut` fallback that tries `Control+Space`, `Alt+Space`, `Super+Space`, `CommandOrControl+Shift+Space`, `Control+Alt+Space` in order, logging which one registered (or that none did).
 > 7. `window-all-closed` must be a no-op so the process stays resident.
 > 8. `hideWindow()` hides the bar and closes any open dialog. **Do not quit on hide** — the whole point is to stay resident.
-> 9. Provide an `APP_COMMANDS` map `appId → string[][]` of candidate commands, for example `files: [['nautilus'], ['nemo'], ['dolphin'], ['thunar'], ['xdg-open', $HOME]]`. `launchApp(appId)` spawns the first candidate via `child_process.spawn(cmd, args, { detached: true, stdio: 'ignore' })` and calls `child.unref()`; on `error` tries the next candidate. Supported appIds: `files, chrome, terminal, rhythmbox, settings` — see the README for full mappings.
+> 9. Provide an `APP_COMMANDS` map `appId → string[][]` of candidate commands, selected per OS using `IS_MAC` / `IS_WIN` constants. `launchApp(appId)` spawns the first candidate via `child_process.spawn(cmd, args, { detached: true, stdio: 'ignore' })` and calls `child.unref()`; on `error` tries the next candidate. AppIds and their OS-specific commands: `files` (Finder / explorer.exe / nautilus chain), `chrome`, `safari` (mac only), `terminal` (Terminal.app / gnome-terminal chain), `cmd` + `powershell` (windows only), `rhythmbox` (linux only), `settings`.
 >
 > **IPC channels** (renderer → main):
 > - `spotlight:hide` — `hideWindow()` (hide + close dialog)
@@ -371,7 +429,7 @@ This project was built interactively over many iterations. If you want to recrea
 > - Outer: `<div class="drag flex h-screen items-center gap-4 px-5">`
 > - Pill: a `.drag` div `w-[660px] shrink-0 items-center gap-4 rounded-full border border-white bg-white px-7 py-4 shadow-md` — contains the search icon (stroke-width 2.25), the `<input id="search" placeholder="Spotlight Search" class="no-drag min-w-0 flex-1 bg-transparent text-2xl font-light text-blue-950 placeholder-slate-600 outline-none">`, and a subtle `<span id="hint" class="pointer-events-none flex shrink-0 items-center gap-2 text-xs text-slate-400 transition-opacity duration-200">` with a small `<kbd>Tab</kbd>` and the text "for more".
 > - Actions: a flex row of four circular `<button>`s, each 56 × 56 px (`h-14 w-14`), `bg-sky-200` / `hover:bg-sky-300` / `focus:bg-sky-300 focus-visible:ring-2 focus-visible:ring-blue-500/70`, `shadow-md`, `transition-all duration-200 ease-out`. Each starts `disabled pointer-events-none`. The first button starts with just the `peek-fade` class; the others start `opacity-0 -translate-x-3`.
-> - Four actions, in order: **Applications**, **Files**, **Stack**, **Documents**. Use stroke-only SVG icons (heroicons style) drawn inline, blue-navy.
+> - Four actions, in order: **Applications**, **Finder / Explorer / Files** (label adapts per OS), **Stack**, **Documents**. Use stroke-only SVG icons (heroicons style) drawn inline, blue-navy.
 >
 > **`peek-fade` CSS** (in `styles.css`):
 >
@@ -404,8 +462,8 @@ This project was built interactively over many iterations. If you want to recrea
 >
 > **Dialog content** (`DIALOG_CONTENT`), per action:
 >
-> - `apps` — Files `appId:files`, Google Chrome `appId:chrome`, Terminal `appId:terminal`, Gmail `url:https://mail.google.com/`, Google Calendar `url:https://calendar.google.com/`, Google Maps `url:https://maps.google.com/`, LinkedIn `url:https://www.linkedin.com/`, X `url:https://x.com/`, Rhythmbox `appId:rhythmbox`, Settings `appId:settings`.
-> - `files`, `stack`, `docs` — three sample items each (placeholders, no appId / url).
+> - `apps` — built by `buildAppsItems()` which selects per OS: macOS gets Finder, Chrome, Safari, Terminal (Terminal.app), System Preferences; Windows gets Explorer, Chrome, Cmd, PowerShell, Windows Settings; Linux gets Files/Nautilus, Chrome, Terminal (GNOME chain), Rhythmbox, Settings. All OSes include the web destinations (Gmail, Google Calendar, Google Maps, LinkedIn, X).
+> - `files`, `stack`, `docs` — sample placeholder items each (no appId / url).
 >
 > **Dialog listbox interaction.** Each item with `data-app-id` or `data-url` gets `role="option"` and starts with `tabindex="-1"`. The first interactive item receives `tabindex="0"` and `.focus()` on dialog open (roving tabindex). Handle arrow navigation: **↓** / **↑** wrap, **Home** / **End** jump to first/last, **Enter** / **Space** activate (either `window.spotlight.launch(appId)` or `window.spotlight.openUrl(url)`). **Esc** closes the dialog. Items get `focus:bg-sky-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-400`, matching the hover state.
 >

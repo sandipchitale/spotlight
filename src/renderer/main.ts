@@ -13,6 +13,9 @@ declare global {
   }
 }
 
+const IS_MAC = process.platform === 'darwin'
+const IS_WIN = process.platform === 'win32'
+
 type Action = { id: string; label: string; svg: string }
 
 const ACTIONS: Action[] = [
@@ -27,7 +30,7 @@ const ACTIONS: Action[] = [
   },
   {
     id: 'files',
-    label: 'Files',
+    label: IS_MAC ? 'Finder' : IS_WIN ? 'Explorer' : 'Files',
     svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3.5 7.5a2 2 0 0 1 2-2h3.7l1.8 2H18.5a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-10Z" />
     </svg>`,
@@ -53,22 +56,56 @@ const ACTIONS: Action[] = [
 type DialogItem = { name: string; meta: string; appId?: string; url?: string }
 type DialogContent = { title: string; subtitle: string; items: DialogItem[] }
 
+function buildAppsItems(): DialogItem[] {
+  const fileItem: DialogItem = IS_MAC
+    ? { name: 'Finder', meta: 'Finder', appId: 'files' }
+    : IS_WIN
+    ? { name: 'Explorer', meta: 'Explorer', appId: 'files' }
+    : { name: 'Files', meta: 'Nautilus', appId: 'files' }
+
+  const terminalItems: DialogItem[] = IS_WIN
+    ? [
+        { name: 'Cmd', meta: 'Command Prompt', appId: 'cmd' },
+        { name: 'PowerShell', meta: 'PowerShell', appId: 'powershell' },
+      ]
+    : IS_MAC
+    ? [{ name: 'Terminal', meta: 'Terminal.app', appId: 'terminal' }]
+    : [{ name: 'Terminal', meta: 'GNOME Terminal', appId: 'terminal' }]
+
+  const platformItems: DialogItem[] = IS_MAC
+    ? [{ name: 'Settings', meta: 'System Preferences', appId: 'settings' }]
+    : IS_WIN
+    ? [{ name: 'Settings', meta: 'Windows Settings', appId: 'settings' }]
+    : [
+        { name: 'Rhythmbox', meta: 'Media', appId: 'rhythmbox' },
+        { name: 'Settings', meta: 'GNOME Control Center', appId: 'settings' },
+      ]
+
+  const browserItems: DialogItem[] = IS_MAC
+    ? [
+        { name: 'Chrome', meta: 'Browser', appId: 'chrome' },
+        { name: 'Safari', meta: 'Browser', appId: 'safari' },
+      ]
+    : [{ name: 'Chrome', meta: 'Browser', appId: 'chrome' }]
+
+  return [
+    fileItem,
+    ...browserItems,
+    ...terminalItems,
+    { name: 'Gmail', meta: 'mail.google.com', url: 'https://mail.google.com/' },
+    { name: 'Google Calendar', meta: 'calendar.google.com', url: 'https://calendar.google.com/' },
+    { name: 'Google Maps', meta: 'maps.google.com', url: 'https://maps.google.com/' },
+    { name: 'LinkedIn', meta: 'linkedin.com', url: 'https://www.linkedin.com/' },
+    { name: 'X', meta: 'x.com', url: 'https://x.com/' },
+    ...platformItems,
+  ]
+}
+
 const DIALOG_CONTENT: Record<string, DialogContent> = {
   apps: {
     title: 'Applications',
     subtitle: 'Frequently used',
-    items: [
-      { name: 'Files', meta: 'Nautilus', appId: 'files' },
-      { name: 'Google Chrome', meta: 'Browser', appId: 'chrome' },
-      { name: 'Terminal', meta: 'GNOME Terminal', appId: 'terminal' },
-      { name: 'Gmail', meta: 'mail.google.com', url: 'https://mail.google.com/' },
-      { name: 'Google Calendar', meta: 'calendar.google.com', url: 'https://calendar.google.com/' },
-      { name: 'Google Maps', meta: 'maps.google.com', url: 'https://maps.google.com/' },
-      { name: 'LinkedIn', meta: 'linkedin.com', url: 'https://www.linkedin.com/' },
-      { name: 'X', meta: 'x.com', url: 'https://x.com/' },
-      { name: 'Rhythmbox', meta: 'Media', appId: 'rhythmbox' },
-      { name: 'Settings', meta: 'GNOME Control Center', appId: 'settings' },
-    ],
+    items: buildAppsItems(),
   },
   files: {
     title: 'Recent Files',
@@ -87,7 +124,7 @@ const DIALOG_CONTENT: Record<string, DialogContent> = {
       { name: 'spotlight — main.ts', meta: 'WebStorm' },
       { name: 'GitHub — pull requests', meta: 'Firefox' },
       { name: 'Inbox (3)', meta: 'Thunderbird' },
-      { name: 'Home', meta: 'Files' },
+      { name: 'Home', meta: IS_MAC ? 'Finder' : IS_WIN ? 'Explorer' : 'Files' },
     ],
   },
   docs: {
