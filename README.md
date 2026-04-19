@@ -527,11 +527,13 @@ exec "$APPIMAGE"
 And scripts:
 
 ```json
-"scripts" : {
-  "dev": "vite",
-  "build": "vite build",
-  "start": "electron .",
-  "dist": "vite build && electron-builder --linux --x64"
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "electron .",
+    "dist": "vite build && electron-builder --linux --x64"
+  }
 }
 ```
 
