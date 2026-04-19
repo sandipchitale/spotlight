@@ -2,7 +2,7 @@
 
 A macOS Spotlight–style launcher for **Linux**, **macOS**, and **Windows**, built with **Electron**, **Vite**, and **Tailwind CSS v4**.
 
-A frameless, transparent, always-on-top window renders a horizontal pill-shaped search field with a progressive-disclosure row of four circular quick-action buttons. Each button opens a themed popup dialog from which you can launch native apps or open web destinations in your default browser. The bar is summoned system-wide via `Ctrl+Alt+Space` — first press cold-starts and keeps the process resident, subsequent presses toggle visibility in ~5 ms via a POSIX signal.
+A frameless, transparent, always-on-top window renders a horizontal pill-shaped search field with a progressive-disclosure row of four circular quick-action buttons. Each button opens a themed popup dialog from which you can launch native apps, open web destinations in your default browser, or preview placeholder actions. The bar is summoned system-wide via `Ctrl+Alt+Space` — first press cold-starts and keeps the process resident, subsequent presses toggle visibility in ~5 ms via a POSIX signal.
 
 ## Screenshot
 
@@ -47,7 +47,8 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 
 - Clicking a button opens a small themed popup (480 × 520 px, `rounded-2xl`, `bg-white`, `shadow-2xl`) just below the bar
 - List inside the dialog has its own faint `border-slate-200/80 shadow-sm` inset
-- Roving-tabindex listbox: first item auto-focuses on open, **↑** / **↓** wrap, **Home** / **End** jump, **Enter** / **Space** activate, **Esc** or close-icon dismiss
+- **All** list items are keyboard-navigable (roving-tabindex listbox), not just the wired ones: first item auto-focuses on open, **↑** / **↓** wrap, **Home** / **End** jump, **Enter** / **Space** activate, **Esc** or close-icon dismiss
+- Items with `data-app-id` launch a native binary; items with `data-url` open in the default browser; items with neither show a briefly-visible **"Not implemented yet"** toast (slate pill at the bottom of the dialog, `role="status" aria-live="polite"`) without closing the dialog
 - Click-outside (`blur`) closes the dialog
 
 ### Behavior
@@ -97,7 +98,7 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 |---|---|
 | **↑** / **↓** | Move selection (wraps) |
 | **Home** / **End** | Jump to first / last item |
-| **Enter** / **Space** | Activate (launch app or open URL) |
+| **Enter** / **Space** | Activate (launch app, open URL, or show "Not implemented yet") |
 | **Esc** or close icon | Dismiss |
 
 ## Drag region CSS
@@ -116,7 +117,7 @@ The two classes in `src/renderer/styles.css` control which parts grab the window
 }
 ```
 
-The outer flex container, the pill body, and the dialog header are `.drag`. The `<input>`, the four action buttons, the dialog close button, and the list items are `.no-drag`.
+The outer flex container, the pill body, and the dialog header are `.drag`. The `<input>`, the four action buttons, the dialog close button, the list items, and the toast container are `.no-drag`.
 
 ## Peek-fade CSS
 
@@ -244,7 +245,7 @@ gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$S
 
 - **Main process** (`src/spotlight.ts`) creates the frameless transparent `BrowserWindow`, opens the popup dialog as a child `BrowserWindow`, writes a PID file on startup, handles `SIGUSR1` for instant re-show, launches native apps via `child_process.spawn`, and opens URLs via `shell.openExternal`.
 - **Preload** (`src/preload.ts`) exposes a small `window.spotlight` API via `contextBridge` (`contextIsolation: true`, `nodeIntegration: false`): `hide`, `quit`, `openDialog`, `closeDialog`, `launch`, `openUrl`.
-- **Renderer** (`src/renderer/main.ts`) reads `?view=` from the URL and renders either the bar UI (default) or the dialog UI. It owns keyboard handlers, mouse-shake detection, progressive-disclosure state, and the dialog listbox.
+- **Renderer** (`src/renderer/main.ts`) reads `?view=` from the URL and renders either the bar UI (default) or the dialog UI. It owns keyboard handlers, mouse-shake detection, progressive-disclosure state, the listbox roving-tabindex, and the "Not implemented yet" toast.
 
 ### Progressive disclosure (all-CSS)
 
@@ -261,6 +262,17 @@ All transitions are pure CSS (`transition-all duration-200 ease-out`), so they'r
 
 Tracks `mousemove`, computes velocity (`dx/dt`), and counts direction reversals. Four reversals inside 700 ms that exceed 0.4 px/ms triggers a cascading `revealNext()` — each subsequent button appears 90 ms after the previous.
 
+### Dialog listbox (roving tabindex)
+
+- Every list item renders with `role="option"` and `tabindex="-1"` — including items that aren't wired to any action.
+- On dialog open, the first item gets `tabindex="0"` and `.focus()`.
+- Arrow / Home / End reassigns the `0` to the target item and calls `.focus()` on it (all siblings become `-1` again).
+- Enter / Space → `activateItem(li)` dispatches on the item's data attributes:
+  - `data-app-id` → `window.spotlight.launch(appId)`
+  - `data-url` → `window.spotlight.openUrl(url)`
+  - neither → `showToast('Not implemented yet')`
+- The toast is an absolutely-positioned pill (`bg-slate-900/90`) anchored inside the dialog card (`relative` on the card); it fades in on activation, stays ~1800 ms, then fades out. No focus is stolen, so the dialog doesn't blur-close.
+
 ### Single-instance + signal trigger (fast launch)
 
 - The Electron process calls `app.requestSingleInstanceLock()` and writes its PID to `$XDG_RUNTIME_DIR/spotlight.pid`.
@@ -276,13 +288,14 @@ Tracks `mousemove`, computes velocity (`dx/dt`), and counts direction reversals.
 ## Customizing
 
 - **Action buttons** (icons / labels): `ACTIONS` in `src/renderer/main.ts`
-- **Dialog content**: `DIALOG_CONTENT` + `buildAppsItems()` in `src/renderer/main.ts`. Each item takes either `appId` (launches a native binary) or `url` (opens in default browser). Items are built per-OS using `IS_MAC` / `IS_WIN` guards.
+- **Dialog content**: `DIALOG_CONTENT` + `buildAppsItems()` in `src/renderer/main.ts`. Each item takes either `appId` (launches a native binary), `url` (opens in default browser), or neither (triggers the "Not implemented yet" toast — used for the placeholder `files` / `stack` / `docs` dialogs). Items are built per-OS using `IS_MAC` / `IS_WIN` guards.
 - **Native app mappings**: `APP_COMMANDS` in `src/spotlight.ts` — each `appId` maps to an ordered list of candidate commands per OS; the first one that exists on `PATH` wins.
 - **Window dimensions**: `WIN_WIDTH` / `WIN_HEIGHT`, `DIALOG_WIDTH` / `DIALOG_HEIGHT` in `src/spotlight.ts`
-- **Theme**: Tailwind utilities in `src/renderer/main.ts` — pill uses `bg-white`, buttons use `bg-sky-200` / `bg-sky-300` (hover), dialog uses `bg-white`, list uses `border-slate-200/80 shadow-sm`
+- **Theme**: Tailwind utilities in `src/renderer/main.ts` — pill uses `bg-white`, buttons use `bg-sky-200` / `bg-sky-300` (hover), dialog uses `bg-white`, list uses `border-slate-200/80 shadow-sm`, toast uses `bg-slate-900/90`
 - **Peek mask curve**: `.peek-fade` in `src/renderer/styles.css`
 - **Global shortcut**: rebind via GNOME settings or `gsettings set ...:spotlight/ binding '<Super>F1'`
 - **Reveal stagger / collapse delay**: `STAGGER_MS` and `COLLAPSE_DELAY_MS` in `src/renderer/main.ts`
+- **Toast duration**: the 1800 ms timeout inside `showToast()` in `src/renderer/main.ts`
 
 ## Troubleshooting
 
@@ -458,14 +471,14 @@ This project was built interactively over many iterations. If you want to recrea
 >
 > **Mouse-shake detector** (on `window.mousemove`, only when `count < 4`): store last `clientX`, timestamp, direction. When direction changes (`sign(dx)` flips) within ≤120 ms and velocity ≥ 0.4 px/ms, count a reversal. After 4 reversals inside a 700 ms window, call a cascading `revealNext()` (`setTimeout` chain with `STAGGER_MS = 90`).
 >
-> **Dialog UI.** Main process's `openDialog(actionId)` creates a new 480 × 520 `BrowserWindow`, `parent: mainWin`, frameless, transparent, always-on-top, positioned `(barBounds.x + (barBounds.width - 480)/2, barBounds.y + barBounds.height + 10)`. Load the same `index.html` with `?view=dialog&action=<actionId>`. Auto-close on `blur`. Renderer detects the query param and renders a themed card: `rounded-2xl border border-white bg-white shadow-2xl` with a header showing title + subtitle and a close button, and a listbox `<ul role="listbox" class="mx-3 mb-3 flex-1 space-y-1 overflow-y-auto rounded-lg border border-slate-200/80 p-2 shadow-sm">`.
+> **Dialog UI.** Main process's `openDialog(actionId)` creates a new 480 × 520 `BrowserWindow`, `parent: mainWin`, frameless, transparent, always-on-top, positioned `(barBounds.x + (barBounds.width - 480)/2, barBounds.y + barBounds.height + 10)`. Load the same `index.html` with `?view=dialog&action=<actionId>`. Auto-close on `blur`. Renderer detects the query param and renders a themed card: `relative rounded-2xl border border-white bg-white shadow-2xl` (the `relative` is important — it anchors the toast). Header shows title + subtitle and a close button; then a listbox `<ul role="listbox" class="mx-3 mb-3 flex-1 space-y-1 overflow-y-auto rounded-lg border border-slate-200/80 p-2 shadow-sm">`; then an absolutely-positioned toast `<div id="toast" role="status" aria-live="polite" class="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/90 px-4 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-200">Not implemented yet</div>`.
 >
 > **Dialog content** (`DIALOG_CONTENT`), per action:
 >
 > - `apps` — built by `buildAppsItems()` which selects per OS: macOS gets Finder, Chrome, Safari, Terminal (Terminal.app), System Preferences; Windows gets Explorer, Chrome, Cmd, PowerShell, Windows Settings; Linux gets Files/Nautilus, Chrome, Terminal (GNOME chain), Rhythmbox, Settings. All OSes include the web destinations (Gmail, Google Calendar, Google Maps, LinkedIn, X).
-> - `files`, `stack`, `docs` — sample placeholder items each (no appId / url).
+> - `files`, `stack`, `docs` — sample placeholder items each **without** `appId` / `url` so they trigger the "Not implemented yet" toast when activated.
 >
-> **Dialog listbox interaction.** Each item with `data-app-id` or `data-url` gets `role="option"` and starts with `tabindex="-1"`. The first interactive item receives `tabindex="0"` and `.focus()` on dialog open (roving tabindex). Handle arrow navigation: **↓** / **↑** wrap, **Home** / **End** jump to first/last, **Enter** / **Space** activate (either `window.spotlight.launch(appId)` or `window.spotlight.openUrl(url)`). **Esc** closes the dialog. Items get `focus:bg-sky-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-400`, matching the hover state.
+> **Dialog listbox interaction.** Every item (regardless of whether it's wired up) renders with `role="option"` and `tabindex="-1"`. On dialog open, the first item receives `tabindex="0"` and `.focus()` (roving tabindex). Handle arrow navigation: **↓** / **↑** wrap, **Home** / **End** jump to first/last, **Enter** / **Space** activate. `activateItem(li)` dispatches on `data-app-id` → `window.spotlight.launch(appId)`, `data-url` → `window.spotlight.openUrl(url)`, otherwise → `showToast('Not implemented yet')`. `showToast(msg)` sets the toast text, removes `opacity-0`, then re-adds it 1800 ms later (clearing any previous timer). **Esc** closes the dialog. Items get `cursor-pointer focus:bg-sky-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-400`, matching the hover state.
 >
 > **Trigger script** `bin/spotlight-trigger` (make it `chmod +x`):
 >
@@ -521,9 +534,9 @@ This project was built interactively over many iterations. If you want to recrea
 > 1. Create `~/.local/share/applications/spotlight.desktop` (Type=Application, Exec=absolute-AppImage-path %U, Icon=absolute-icon-path, Categories=System;Utility;, StartupWMClass=Spotlight); `chmod +x` it and run `update-desktop-database ~/.local/share/applications/`.
 > 2. Register a GNOME custom keybinding that runs **the trigger script, not the AppImage**, on `<Control><Alt>space`. Append to `org.gnome.settings-daemon.plugins.media-keys custom-keybindings` rather than overwriting existing entries.
 >
-> **Theme constants to respect throughout** — opaque white / sky-blue palette, dark-navy text (`text-blue-950`), slate placeholder / secondary text, small shadows (`shadow-md` / `shadow-sm`), generous rounding (`rounded-full` for pill/buttons, `rounded-2xl` for dialog, `rounded-lg` for listbox).
+> **Theme constants to respect throughout** — opaque white / sky-blue palette, dark-navy text (`text-blue-950`), slate placeholder / secondary text, small shadows (`shadow-md` / `shadow-sm`) with the exception of the dialog card (`shadow-2xl`), generous rounding (`rounded-full` for pill/buttons, `rounded-2xl` for dialog, `rounded-lg` for listbox, `rounded-full` for toast).
 >
-> **Final deliverable expectations.** A single `npm install && npm run dist` should produce a working AppImage. After running it once and registering the GNOME shortcut + `.desktop` entry per the README, `Ctrl+Alt+Space` should pop the bar from anywhere on the desktop; Tab should progressively disclose the four buttons; clicking Applications → Google Chrome should launch Chrome and hide the bar; clicking Applications → Gmail should open it in the default browser.
+> **Final deliverable expectations.** A single `npm install && npm run dist-linux` (or `dist-mac` / `dist-win`) should produce a working installer for the target OS. After running it once and registering the GNOME shortcut + `.desktop` entry per the README (or granting Accessibility on macOS, no extra setup on Windows), the platform-specific shortcut should pop the bar from anywhere on the desktop; Tab should progressively disclose the four buttons; clicking Applications → Chrome should launch Chrome and hide the bar; clicking Applications → Gmail should open it in the default browser; clicking a Files / Stack / Documents placeholder should briefly show "Not implemented yet" without closing the dialog.
 
 ## License
 
