@@ -433,6 +433,10 @@ function renderSpotlightBar(): void {
 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') {
+      // Tab only drives the reveal/focus sequence while the input is empty.
+      // Once the user starts typing, fall through to the browser's default
+      // Tab handling instead of intercepting it.
+      if (input.value !== '') return
       e.preventDefault()
       clearStagger()
       if (!e.shiftKey) {

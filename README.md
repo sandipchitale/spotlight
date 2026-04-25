@@ -23,13 +23,13 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 - A white pill input (660 px × ~60 px, `shadow-md`) and four 56 px sky-blue circular action buttons to the right
 - Opaque surfaces throughout (`bg-white`, `bg-sky-200`); empty window area is transparent so the desktop shows through
 - High-contrast placeholder (`text-slate-600`) and dark-navy icons
-- Subtle `[Tab] for more` hint inside the pill, to the right of the input
+- Subtle `[Tab] for more` hint inside the pill, to the right of the input — shown only while the input is empty (matches Tab's reveal behavior)
 
 ### Progressive disclosure
 
 - Initially only the pill is visible. The "next hidden" button is shown behind a smooth left-to-right gradient mask as a peek hint.
 - **Shake the mouse** over the bar → cascading reveal of all four buttons (each appears ~90 ms after the previous)
-- **Tab** alternates **reveal → focus → reveal → focus**:
+- **Tab** alternates **reveal → focus → reveal → focus** (only when the input is empty — once the user starts typing, Tab is a no-op and focus stays in the input):
 
   | Before Tab (count, focus) | After Tab |
   |---|---|
@@ -85,8 +85,8 @@ A frameless, transparent, always-on-top window renders a horizontal pill-shaped 
 
 | Shortcut | Action |
 |---|---|
-| **Tab** | Reveal next hidden button, or focus first revealed button (alternating) |
-| **Shift+Tab** | Un-reveal last revealed button, or move focus to input (mirror of Tab) |
+| **Tab** | Reveal next hidden button, or focus first revealed button (alternating) — only when the input is empty; otherwise falls through to the browser's default Tab behavior |
+| **Shift+Tab** | Un-reveal last revealed button, or move focus to input (mirror of Tab) — also only when the input is empty; otherwise falls through to default Tab behavior |
 | **Esc** | Cascade-collapse buttons → clear input → hide window |
 | **Enter** | Submit query (logged to console) |
 
@@ -464,7 +464,7 @@ Build an Electron application called **Spotlight** that behaves like macOS Spotl
 
 **Progressive disclosure state machine.** Track a single `visibleCount` (0–4). In `setVisibleCount(n)`, iterate buttons: `i < n` → revealed (remove all state classes, `disabled = false`); `i === n` → peek (add `peek-fade pointer-events-none`, `disabled = true`); `i > n` → hidden (add `opacity-0 -translate-x-3 pointer-events-none`, `disabled = true`). Update the input hint after every change and reset the 4 s auto-collapse timer when `n > 0`.
 
-**Keyboard cadence.** On the input:
+**Keyboard cadence.** On the input (Tab and Shift+Tab are gated on the input being empty — when the input has any text, do not intercept the event; let it fall through to the browser's default Tab behavior):
 - **Tab**: reveal first button and focus it.
 - **Shift+Tab**: if `count > 0` un-reveal one.
 - **Esc**: if `count > 0` cascade collapse (stagger 90 ms, hiding one button per tick); else if input has text, clear it; else `spotlight.hide()`.
